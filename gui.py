@@ -18,7 +18,7 @@ import wx, wx.html
 import sys
 import numpy as np
 
-aboutText = """<p>This program is for ...
+aboutText = """<p>This program is for searching google and comparing results with question options.
 \nIt is running on version %(wxpy)s of <b>wxPython</b> and %(python)s of <b>Python</b>.
 See <a href="http://wiki.wxpython.org">wxPython Wiki</a></p>"""
 
@@ -38,10 +38,76 @@ except ImportError:
     print 'Unknown OS detected!'
 
 class Panel1(wx.Panel):
-    def __init__(self, parent, id=-1, size=wx.DefaultSize, color='BLUE'):
+    def __init__(self, parent, statusBar, id=-1, size=wx.DefaultSize, color='BLUE'):
         wx.Panel.__init__(self, parent, id, wx.Point(0, 0), size, wx.SUNKEN_BORDER)
-        self.WindowColor = color
-        self.parent = parent
+        self.WindowColor    = color
+        self.parent         = parent
+        self.statusBar      = statusBar
+        
+        self.listenTButton = wx.ToggleButton(self, label="Toggle Listen")
+        self.Bind(wx.EVT_TOGGLEBUTTON, self.onListen, self.listenTButton)
+        self.listenTButton.SetBackgroundColour('red')
+        
+        self.SaveText_staticText = wx.StaticText(self, label="Word to search for (enter key to search)")
+        self.saveTextEnter = wx.TextCtrl(self, 2, style = wx.TE_PROCESS_ENTER)
+        self.Bind(wx.EVT_TEXT_ENTER, self.Txt_Ent, id = 2)
+        
+        # Toggle Sizer
+        listenerStaticBox = wx.StaticBox(self, -1, 'Toggle listener:')
+        self.listenerBoxSizer = wx.StaticBoxSizer(listenerStaticBox, wx.VERTICAL)
+
+        self.sizerPanel1 = wx.BoxSizer(wx.VERTICAL)
+        self.sizerPanel1.Add(self.listenTButton, wx.ALIGN_LEFT)
+        self.listenerBoxSizer.Add(self.sizerPanel1, 0)
+
+        # Search Sizer
+        self.searchStaticBox = wx.StaticBox(self, -1, 'Search')
+        self.searchBoxSizer = wx.StaticBoxSizer(self.searchStaticBox, wx.VERTICAL)
+
+        self.sizerSaveText = wx.BoxSizer(wx.HORIZONTAL)
+        self.sizerSaveText.Add(self.SaveText_staticText, 0, wx.ALL, 5)
+        self.sizerSaveText.Add(self.saveTextEnter,0,wx.ALIGN_LEFT)
+
+        self.sizerPanel2 = wx.BoxSizer(wx.VERTICAL)
+        self.sizerPanel2.Add(self.sizerSaveText, 0, wx.ALL, 5)
+        self.searchBoxSizer.Add(self.sizerPanel2, 0)
+        
+        # Results Sizer
+        self.resultsStaticBox = wx.StaticBox(self, -1, 'Results')
+        self.resultsBoxSizer = wx.StaticBoxSizer(self.resultsStaticBox, wx.VERTICAL)
+
+        self.searchResults = wx.TextCtrl(self, -1, size=(500, 100))
+        
+        self.clearButton = wx.Button(self,-1,"Clear") 
+        self.Bind(wx.EVT_BUTTON, self.onClear, self.clearButton)
+        
+        self.sizerPanel3 = wx.BoxSizer(wx.VERTICAL)
+        self.sizerPanel3.Add(self.searchResults, 0, wx.ALL, 5)
+        self.sizerPanel3.Add(self.clearButton)
+        self.resultsBoxSizer.Add(self.sizerPanel3, 0)
+        
+        # Notebook Sizer
+        self.sizerPanel = wx.BoxSizer(wx.VERTICAL)
+        self.sizerPanel.Add(self.listenerBoxSizer)
+        self.sizerPanel.Add(self.searchBoxSizer)
+        self.sizerPanel.Add(self.resultsBoxSizer)
+        self.SetSizer(self.sizerPanel)
+
+    def onListen(self, event):
+        if self.listenTButton.GetValue():
+            self.statusBar.SetStatusText('Listening...')
+            self.listenTButton.SetBackgroundColour('green')
+        else:
+            self.statusBar.SetStatusText('Not listening')
+            self.listenTButton.SetBackgroundColour('red')
+
+    def Txt_Ent(self,event):
+        string = (str(self.saveTextEnter.GetValue()))
+        self.saveTextEnter.SetValue("")
+        print string
+
+    def onClear(self,event):
+        self.searchResults.SetValue("")
 
 class Panel2(wx.Panel):
     def __init__(self, parent, id=-1, size=wx.DefaultSize, color='BLUE'):
@@ -96,6 +162,7 @@ class MyFrame(wx.Frame):
 
         # Create status bar
         self.statusBar = self.CreateStatusBar()
+        self.statusBar.SetStatusText('Not listening...')
 
         # Instantiate and configure RX OpalKelly card
         #self.xem1 = ok.FrontPanel()
@@ -106,11 +173,11 @@ class MyFrame(wx.Frame):
         self.nb.frame = self
         
         # Instantiate panels and add to notebook
-        self.Panel1 = Panel1(parent=self.nb)
-        self.Panel2 = Panel1(parent=self.nb)
+        self.Panel1 = Panel1(parent=self.nb, statusBar = self.statusBar)
+        #self.Panel2 = Panel1(parent=self.nb)
 
-        self.nb.AddPage(self.Panel1, "Panel 1")
-        self.nb.AddPage(self.Panel2, "Panel 2")
+        self.nb.AddPage(self.Panel1, "Main")
+        #self.nb.AddPage(self.Panel2, "Panel 2")
         #self.nb.ChangeSelection(0)
 
         # sizer for notebook
@@ -125,9 +192,9 @@ class MyFrame(wx.Frame):
         self.Show(True)
 
         # Timer instance for status bar 
-        self.timer = wx.Timer(self)
-        self.Bind(wx.EVT_TIMER, self.OnTimerEvent, self.timer)
-        self.timer.Start(milliseconds=5000, oneShot=False)
+        #self.timer = wx.Timer(self)
+        #self.Bind(wx.EVT_TIMER, self.OnTimerEvent, self.timer)
+        #self.timer.Start(milliseconds=5000, oneShot=False)
 
     def OnTimerEvent(self, event):
         self.statusBar.SetStatusText('Status bar text')
@@ -144,13 +211,13 @@ class MyFrame(wx.Frame):
     def OnAbout(self, event):
         dlg = AboutBox()
         dlg.ShowModal()
-        dlg.Destroy()  
+        dlg.Destroy()
 
 class App(wx.App):
     def OnInit(self):
-        width = 1200;
-        height = 900;
-        frame = MyFrame(parent=None, id=-1, title='Title', pos=(0,0), size=(width, height))
+        width = 600;
+        height = 500;
+        frame = MyFrame(parent = None, id=-1, title='Trivia Aid', pos=(0,0), size=(width, height))
         self.SetTopWindow(frame)
         return True
 
